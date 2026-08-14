@@ -16,8 +16,9 @@ const employees = [
 export default function Home() {
   const [taskText, setTaskText] = useState("");
   const [tasks, setTasks] = useState([]);
+  const [creating, setCreating] = useState(false);
 
-  function createTask() {
+  async function createTask() {
     const title = taskText.trim();
 
     if (!title) {
@@ -25,19 +26,56 @@ export default function Home() {
       return;
     }
 
-    const newTask = {
-      id: `AF-${Date.now().toString(36).toUpperCase()}`,
-      title,
-      employee: "Chief",
-      status: "QUEUED",
-    };
+    if (creating) {
+      return;
+    }
 
-    setTasks((previousTasks) => [
-      newTask,
-      ...previousTasks,
-    ]);
+    setCreating(true);
 
-    setTaskText("");
+    try {
+      const response = await fetch("/api/run", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          task: title,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error || "Failed to create task."
+        );
+      }
+
+      const newTask = {
+        id: `AF-${Date.now().toString(36).toUpperCase()}`,
+        title,
+        employee:
+          data?.result?.assignedEmployee || "Chief",
+        status:
+          data?.result?.status || "QUEUED",
+      };
+
+      setTasks((previousTasks) => [
+        newTask,
+        ...previousTasks,
+      ]);
+
+      setTaskText("");
+    } catch (error) {
+      console.error("Create task error:", error);
+
+      alert(
+        error?.message ||
+          "Something went wrong while creating the task."
+      );
+    } finally {
+      setCreating(false);
+    }
   }
 
   const working = tasks.filter(
@@ -67,7 +105,8 @@ export default function Home() {
           <h1>AI Factory HQ</h1>
 
           <p>
-            One-person company. Eight AI employees. One command center.
+            One-person company. Eight AI employees. One
+            command center.
           </p>
         </div>
 
@@ -107,15 +146,21 @@ export default function Home() {
 
         <textarea
           value={taskText}
-          onChange={(event) => setTaskText(event.target.value)}
+          onChange={(event) =>
+            setTaskText(event.target.value)
+          }
           placeholder="Example: Create a profitable digital product for freelance graphic designers."
+          disabled={creating}
         />
 
         <button
           type="button"
           onClick={createTask}
+          disabled={creating}
         >
-          ＋ CREATE TASK
+          {creating
+            ? "CREATING TASK..."
+            : "＋ CREATE TASK"}
         </button>
       </section>
 
@@ -134,7 +179,10 @@ export default function Home() {
         ) : (
           <div className="tasks">
             {tasks.map((task) => (
-              <article className="task" key={task.id}>
+              <article
+                className="task"
+                key={task.id}
+              >
                 <div>
                   <small>{task.id}</small>
 
@@ -161,25 +209,27 @@ export default function Home() {
         </div>
 
         <div className="grid">
-          {employees.map(([icon, name, role]) => (
-            <article
-              className="employee"
-              key={name}
-            >
-              <div className="icon">
-                {icon}
-              </div>
+          {employees.map(
+            ([icon, name, role]) => (
+              <article
+                className="employee"
+                key={name}
+              >
+                <div className="icon">
+                  {icon}
+                </div>
 
-              <div>
-                <h3>{name}</h3>
-                <p>{role}</p>
-              </div>
+                <div>
+                  <h3>{name}</h3>
+                  <p>{role}</p>
+                </div>
 
-              <span className="ready">
-                READY
-              </span>
-            </article>
-          ))}
+                <span className="ready">
+                  READY
+                </span>
+              </article>
+            )
+          )}
         </div>
       </section>
     </main>
